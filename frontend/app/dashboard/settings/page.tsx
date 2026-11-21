@@ -49,6 +49,26 @@ export default function SettingsPage() {
     verified_name?: string;
   } | null>(null);
 
+  useEffect(() => {
+    const handleTabFromUrl = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get("tab");
+        if (tab === "invoice" || tab === "branding") setActiveTab("branding");
+        else if (tab === "general" || tab === "profile" || tab === "business") setActiveTab("profile");
+        else if (tab === "whatsapp") setActiveTab("whatsapp");
+        else if (tab === "tax") setActiveTab("tax");
+        else if (tab === "pos") setActiveTab("pos");
+        else if (tab === "integrations") setActiveTab("integrations");
+      }
+    };
+    handleTabFromUrl();
+    window.addEventListener("popstate", handleTabFromUrl);
+    return () => {
+      window.removeEventListener("popstate", handleTabFromUrl);
+    };
+  }, []);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 

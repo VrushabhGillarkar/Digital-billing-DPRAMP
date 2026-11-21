@@ -21,8 +21,6 @@ import {
   ClipboardList,
   History,
   Users,
-  Star,
-  HeartHandshake,
   Ticket,
   Megaphone,
   Sparkles,
@@ -35,6 +33,7 @@ import {
   TrendingUp,
   Store,
   Settings,
+  MessageSquare,
   Activity,
   CalendarCheck,
   LogOut,
@@ -42,9 +41,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Smartphone,
-  Bell,
   Search,
+  Bell,
 } from "lucide-react";
 import { CopilotDrawer } from "@/components/CopilotDrawer";
 import { authApi, notificationApi } from "@/services/api";
@@ -59,23 +57,26 @@ interface NavItem {
 interface NavSection {
   title: string;
   key: string;
+  icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
 }
 
 const navSections: NavSection[] = [
   {
-    title: "MAIN",
-    key: "main",
+    title: "SALES & BILLING",
+    key: "sales",
+    icon: ShoppingCart,
     items: [
-      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Sell", href: "/dashboard/billing", icon: Receipt },
+      { name: "Sell / POS", href: "/dashboard/billing", icon: ShoppingCart },
+      { name: "Invoice History", href: "/dashboard/invoices", icon: FileText },
       { name: "Quotations", href: "/dashboard/quotations", icon: FileCheck },
-      { name: "Customers", href: "/dashboard/customers", icon: Users },
+      { name: "Returns / Refunds", href: "/dashboard/returns", icon: RotateCcw },
     ],
   },
   {
     title: "STOCK MANAGEMENT",
     key: "stock",
+    icon: Boxes,
     items: [
       { name: "Stock Overview", href: "/dashboard/inventory", icon: Boxes },
       { name: "Products", href: "/dashboard/products", icon: Package },
@@ -88,32 +89,60 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "BUSINESS",
-    key: "business",
+    title: "CONTACTS",
+    key: "contacts",
+    icon: Users,
     items: [
-      { name: "Payment Ledger", href: "/dashboard/finance/payments", icon: CreditCard },
-      { name: "Receivables (Udhaar)", href: "/dashboard/finance/receivables", icon: AlertCircle },
-      { name: "Payables", href: "/dashboard/finance/payables", icon: FileSpreadsheet },
-      { name: "Cash Register", href: "/dashboard/register", icon: Landmark },
-      { name: "Sales Reports", href: "/dashboard/reports/sales", icon: TrendingUp },
-      { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+      { name: "Customers", href: "/dashboard/customers", icon: Users },
+      { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
     ],
   },
   {
-    title: "MORE",
-    key: "more",
+    title: "REPORTS & ANALYTICS",
+    key: "reports",
+    icon: BarChart3,
     items: [
-      { name: "Returns", href: "/dashboard/returns", icon: RotateCcw },
-      { name: "Purchase Orders", href: "/dashboard/purchases", icon: ClipboardList },
-      { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
+      { name: "Sales Reports", href: "/dashboard/reports/sales", icon: TrendingUp },
+      { name: "Purchase Reports", href: "/dashboard/purchases/history", icon: ClipboardList },
+      { name: "Inventory Reports", href: "/dashboard/reports/pos", icon: Boxes },
+      { name: "Customer Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+      { name: "Payment Reports", href: "/dashboard/reports/daily-closing", icon: CalendarCheck },
+      { name: "Reports Hub", href: "/dashboard/reports", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    title: "FINANCE",
+    key: "finance",
+    icon: Landmark,
+    items: [
+      { name: "Payment Records", href: "/dashboard/finance/payments", icon: CreditCard },
+      { name: "Customer Outstanding", href: "/dashboard/finance/receivables", icon: AlertCircle },
+      { name: "Credit Management", href: "/dashboard/finance/payables", icon: FileSpreadsheet },
+      { name: "Cash Register", href: "/dashboard/register", icon: Landmark },
+    ],
+  },
+  {
+    title: "ADMINISTRATION",
+    key: "admin",
+    icon: Settings,
+    items: [
       { name: "Staff Management", href: "/dashboard/staff", icon: Users },
-      { name: "Coupons & Discounts", href: "/dashboard/coupons", icon: Ticket },
-      { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
-      { name: "AI Assistant", href: "/dashboard/ai-campaigns", icon: Sparkles },
+      { name: "Business Settings", href: "/dashboard/settings?tab=general", icon: Settings },
+      { name: "Invoice Customization", href: "/dashboard/settings?tab=invoice", icon: FileText },
+      { name: "WhatsApp Settings", href: "/dashboard/settings?tab=whatsapp", icon: MessageSquare },
+      { name: "Data Import / POS Migration", href: "/dashboard/migration", icon: FileSpreadsheet },
       { name: "Stores", href: "/dashboard/stores", icon: Store },
-      { name: "POS Migration", href: "/dashboard/migration", icon: FileSpreadsheet },
       { name: "System Health", href: "/dashboard/health", icon: Activity },
-      { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    ],
+  },
+  {
+    title: "MORE UTILITIES",
+    key: "more",
+    icon: Sparkles,
+    items: [
+      { name: "Coupons & Discounts", href: "/dashboard/coupons", icon: Ticket },
+      { name: "Marketing Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
+      { name: "AI Assistant", href: "/dashboard/ai-campaigns", icon: Sparkles },
     ],
   },
 ];
@@ -193,6 +222,7 @@ export default function DashboardLayout({
   }, [router]);
 
   const [currentFilter, setCurrentFilter] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<string | null>(null);
 
   useEffect(() => {
     const updateQueryParams = () => {
@@ -200,6 +230,7 @@ export default function DashboardLayout({
         const params = new URLSearchParams(window.location.search);
         setCurrentTab(params.get("tab"));
         setCurrentFilter(params.get("filter"));
+        setCurrentView(params.get("view"));
       }
     };
     updateQueryParams();
@@ -216,21 +247,36 @@ export default function DashboardLayout({
   // Helper to determine if an item is active
   const isItemActive = React.useCallback((item: NavItem) => {
     const [itemPath, itemQuery] = item.href.split("?");
-    const itemFilter = itemQuery ? new URLSearchParams(itemQuery).get("filter") : null;
+    const params = itemQuery ? new URLSearchParams(itemQuery) : null;
+    const itemFilter = params ? params.get("filter") : null;
+    const itemTab = params ? params.get("tab") : item.tab || null;
 
-    if (itemPath === "/dashboard/billing") {
-      if (
-        pathname === "/dashboard/billing" ||
-        pathname === "/dashboard/pos" ||
-        pathname === "/dashboard/invoices" ||
-        pathname?.startsWith("/dashboard/billing")
-      ) {
-        return true;
-      }
+    // Distinguish between Sell / POS and Invoice History
+    if (item.name === "Invoice History" || itemPath === "/dashboard/invoices") {
+      if (pathname === "/dashboard/invoices") return true;
+      if (pathname === "/dashboard/billing" && currentView === "history") return true;
+      return false;
     }
+    if (item.name === "Sell / POS" || itemPath === "/dashboard/billing") {
+      if (pathname === "/dashboard/billing" && currentView !== "history") return true;
+      if (pathname === "/dashboard/pos") return true;
+      return false;
+    }
+
     if (itemPath === "/dashboard/notifications") {
       return pathname === "/dashboard/notifications" || pathname?.startsWith("/dashboard/notifications");
     }
+
+    // Reports Hub exact check vs sub-reports
+    if (itemPath === "/dashboard/reports" && !itemQuery) {
+      return pathname === "/dashboard/reports";
+    }
+
+    // Purchases exact check
+    if (itemPath === "/dashboard/purchases/history") {
+      return pathname === "/dashboard/purchases/history" || pathname === "/dashboard/purchases";
+    }
+
     if (pathname !== itemPath) return false;
 
     // Distinguish between /dashboard/inventory (Stock Overview) and /dashboard/inventory?filter=low_stock
@@ -241,15 +287,18 @@ export default function DashboardLayout({
       return false;
     }
 
+    // Distinguish between Settings tabs
+    if (pathname === "/dashboard/settings") {
+      if (itemTab === "whatsapp") return currentTab === "whatsapp";
+      if (itemTab === "invoice" || itemTab === "branding") return currentTab === "invoice" || currentTab === "branding";
+      if (itemTab === "general" || itemTab === "profile") return currentTab === "general" || currentTab === "profile" || !currentTab;
+    }
+
     if (item.tab) {
       return currentTab === item.tab;
     }
-    // If item doesn't have a tab, but URL has a tab, it shouldn't be active if another item handles that tab
-    if (currentTab && (pathname === "/dashboard/reports" || pathname === "/dashboard/inventory" || pathname === "/dashboard/purchases")) {
-      return false;
-    }
     return true;
-  }, [pathname, currentTab, currentFilter]);
+  }, [pathname, currentTab, currentFilter, currentView]);
 
   // Find active section key
   const activeSectionKey = useMemo(() => {
@@ -260,10 +309,28 @@ export default function DashboardLayout({
         }
       }
     }
+    if (pathname?.startsWith("/dashboard/billing") || pathname?.startsWith("/dashboard/invoices") || pathname?.startsWith("/dashboard/pos") || pathname?.startsWith("/dashboard/quotations") || pathname?.startsWith("/dashboard/returns")) {
+      return "sales";
+    }
     if (pathname?.startsWith("/dashboard/inventory") || pathname?.startsWith("/dashboard/products")) {
       return "stock";
     }
-    return "dashboard";
+    if (pathname?.startsWith("/dashboard/customers") || pathname?.startsWith("/dashboard/suppliers")) {
+      return "contacts";
+    }
+    if (pathname?.startsWith("/dashboard/reports") || pathname?.startsWith("/dashboard/analytics") || pathname?.startsWith("/dashboard/purchases")) {
+      return "reports";
+    }
+    if (pathname?.startsWith("/dashboard/finance") || pathname?.startsWith("/dashboard/register")) {
+      return "finance";
+    }
+    if (pathname?.startsWith("/dashboard/settings") || pathname?.startsWith("/dashboard/staff") || pathname?.startsWith("/dashboard/migration") || pathname?.startsWith("/dashboard/stores") || pathname?.startsWith("/dashboard/health")) {
+      return "admin";
+    }
+    if (pathname?.startsWith("/dashboard/coupons") || pathname?.startsWith("/dashboard/campaigns") || pathname?.startsWith("/dashboard/ai-campaigns")) {
+      return "more";
+    }
+    return "";
   }, [isItemActive, pathname]);
 
   // Load persisted collapsed state from sessionStorage on mount
@@ -307,6 +374,9 @@ export default function DashboardLayout({
 
   // Find current active page title
   const activePageTitle = useMemo(() => {
+    if (pathname === "/dashboard" || pathname === "/dashboard/") {
+      return "Dashboard Overview";
+    }
     if (pathname === "/dashboard/notifications" || pathname?.startsWith("/dashboard/notifications")) {
       return "Notifications";
     }
@@ -413,8 +483,27 @@ export default function DashboardLayout({
         </div>
 
         {/* Scrollable Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4 text-xs select-none">
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-3 text-xs select-none">
+          {/* Top-level Dashboard Link */}
+          <div className="pb-0.5">
+            <Link
+              href="/dashboard"
+              onClick={closeMobile}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all min-h-[36px]",
+                pathname === "/dashboard" || pathname === "/dashboard/"
+                  ? "bg-primary text-primary-foreground shadow-sm font-bold"
+                  : "text-foreground/90 hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <LayoutDashboard className={cn("h-4 w-4 shrink-0", pathname === "/dashboard" || pathname === "/dashboard/" ? "text-primary-foreground" : "text-primary")} />
+              <span>Dashboard</span>
+            </Link>
+          </div>
+
+          {/* Business Operation Navigation Groups */}
           {navSections.map((section) => {
+            const SectionIcon = section.icon;
             const filteredItems = menuSearch.trim()
               ? section.items.filter((item) =>
                   item.name.toLowerCase().includes(menuSearch.toLowerCase()) ||
@@ -434,25 +523,29 @@ export default function DashboardLayout({
                   type="button"
                   onClick={() => !menuSearch.trim() && toggleSection(section.key)}
                   className={cn(
-                    "flex w-full items-center justify-between px-2.5 py-1.5 text-[11px] font-bold tracking-wider rounded-md uppercase transition-colors",
+                    "flex w-full items-center justify-between px-2.5 py-1.5 text-[11px] font-bold tracking-wider rounded-md uppercase transition-colors group",
                     containsActive
-                      ? "text-primary font-extrabold"
+                      ? "text-primary font-extrabold bg-primary/10"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
+                  aria-expanded={!isCollapsed}
                 >
-                  <span>{section.title}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <SectionIcon className={cn("h-3.5 w-3.5 shrink-0 transition-colors", containsActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <span className="truncate">{section.title}</span>
+                  </div>
                   {!menuSearch.trim() && (
                     isCollapsed ? (
-                      <ChevronRight className="h-3.5 w-3.5 opacity-70" />
+                      <ChevronRight className="h-3.5 w-3.5 opacity-70 shrink-0" />
                     ) : (
-                      <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                      <ChevronDown className="h-3.5 w-3.5 opacity-70 shrink-0" />
                     )
                   )}
                 </button>
 
                 {/* Section children */}
                 {(!isCollapsed || menuSearch.trim()) && (
-                  <div className="space-y-0.5 pt-0.5 pl-1">
+                  <div className="space-y-0.5 pt-0.5 pl-3 border-l-2 border-muted/70 ml-3.5 mt-0.5">
                     {filteredItems.map((item) => {
                       const active = isItemActive(item);
                       const Icon = item.icon;
@@ -463,13 +556,13 @@ export default function DashboardLayout({
                           href={item.href}
                           onClick={closeMobile}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-all min-h-[38px]",
+                            "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-all min-h-[34px]",
                             active
                               ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                         >
-                          <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground")} />
+                          <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground")} />
                           <span className="truncate">{item.name}</span>
                         </Link>
                       );
